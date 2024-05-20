@@ -185,10 +185,11 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
               child: const Text('选择目标文件夹'),
             ),
 
-            if (destinationFiles.isNotEmpty) Expanded(
+            if (destinationFiles.isNotEmpty) SizedBox(
+              height: 150,
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 8,
+                  crossAxisCount: 10,
                   crossAxisSpacing: 2,
                   mainAxisSpacing: 1,
                 ),

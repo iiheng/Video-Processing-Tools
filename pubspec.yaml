@@ -39,6 +39,8 @@ dependencies:
   file_picker: ^8.0.0+1
   permission_handler: ^11.3.1
   fluttertoast: ^8.2.5
+  flutter_easyloading: ^3.0.5
+  toastification: ^2.0.0
 
 dev_dependencies:
   flutter_test:

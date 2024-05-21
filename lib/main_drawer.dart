@@ -4,6 +4,8 @@ import 'package:randommovefile/view/home_page.dart';
 import 'package:randommovefile/view/settings_page.dart';
 import 'package:randommovefile/view/video_selector_page.dart';
 import 'package:randommovefile/view/video_split_page.dart';
+import 'package:randommovefile/view/censorship_page.dart';  // 引入违规词消音页面
+
 class MainDrawer extends StatefulWidget {
   const MainDrawer({super.key});
 
@@ -19,6 +21,7 @@ class _MainDrawerState extends State<MainDrawer> {
     const VideoSplitPage(),
     const SettingsPage(),
     const HelpPage(),
+    const CensorshipPage(),  // 添加违规词消音页面
   ];
 
   void _onItemTapped(int index) {
@@ -37,10 +40,6 @@ class _MainDrawerState extends State<MainDrawer> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: <Widget>[
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.blue),
-              child: Text('导航菜单', style: TextStyle(color: Colors.white, fontSize: 24)),
-            ),
             ListTile(
               title: const Text('主页'),
               onTap: () => _onItemTapped(0),
@@ -54,6 +53,10 @@ class _MainDrawerState extends State<MainDrawer> {
               onTap: () => _onItemTapped(2),
             ),
             ListTile(
+              title: const Text('违规词消音'),  // 新增导航项
+              onTap: () => _onItemTapped(5),
+            ),
+            ListTile(
               title: const Text('设置'),
               onTap: () => _onItemTapped(3),
             ),
@@ -61,6 +64,7 @@ class _MainDrawerState extends State<MainDrawer> {
               title: const Text('帮助'),
               onTap: () => _onItemTapped(4),
             ),
+            
           ],
         ),
       ),

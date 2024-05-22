@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 
 import 'package:randommovefile/utils/FFmpegHandler.dart';
+import 'package:toastification/toastification.dart';
+
+import '../providers/progress_provider.dart';
 
 class CensorshipPage extends StatefulWidget {
   const CensorshipPage({Key? key}) : super(key: key);
@@ -18,6 +22,7 @@ class _CensorshipPageState extends State<CensorshipPage> {
   String _bannedWords = '';
   final List<String> _timeStamps = [];
   List<Map<String, String>> _matches = [];  // 存储完整的匹配信息
+  
    Future<void> pickVideoFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
     if (result != null) {
@@ -86,9 +91,15 @@ Future<List<Map<String, String>>> matchBannedWords() async {
     return timeRanges;
   }
 
-   Future<void> executeFFmpegCommands(List<String> timeRanges) async {
+  Future<void> executeFFmpegCommands(List<String> timeRanges, ProgressProvider progressProvider) async {
     List<String> tempFiles = [];
+    
+    // 显示进度条并初始化为0
+    progressProvider.showProgress(0.0);
+    double currentProgress = 0.0;
 
+    // FFmpeg 命令执行和视频切割
+    double splitPhaseWeight = 0.7;
     for (var i = 0; i < timeRanges.length; i++) {
       String tempFileName = 'output_part_$i.ts';
       String cmd = '-i $_videoPath ${timeRanges[i]} -c copy -bsf:v h264_mp4toannexb -f mpegts $tempFileName';
@@ -99,11 +110,29 @@ Future<List<Map<String, String>>> matchBannedWords() async {
       } else {
         print('临时文件创建失败: $tempFileName');
       }
+
+      // 更新进度条，根据切割的进度
+      currentProgress += splitPhaseWeight / timeRanges.length;
+      progressProvider.updateProgress(currentProgress);
     }
 
+    // 视频合并
+    double mergePhaseWeight = 0.2;
     await mergeVideoSegments(tempFiles);
+    currentProgress += mergePhaseWeight;
+    progressProvider.updateProgress(currentProgress);
+
+    // 清理临时文件
+    double cleanupPhaseWeight = 0.1;
     await cleanUpTempFiles(tempFiles);
+    currentProgress += cleanupPhaseWeight;
+    progressProvider.updateProgress(currentProgress);
+
+    // 完成处理，隐藏进度条
+    progressProvider.hideProgress();
   }
+
+
 
   Future<void> mergeVideoSegments(List<String> tempFiles) async {
     String concatFileName = 'concat_list.txt';
@@ -138,13 +167,23 @@ Future<List<Map<String, String>>> matchBannedWords() async {
     }
   }
 
-  void runCensorship() async {
+  void runCensorship(progressProvider) async {
     if (_subtitlePath.isEmpty || _videoPath.isEmpty) {
+      toastification.show(
+        context: context,
+        title: const Text('请确保视频和字幕文件已选择！'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
       print('请确保视频和字幕文件已选择！');
       return;
     }
 
     if (_bannedWords.isEmpty) {
+      toastification.show(
+        context: context,
+        title: const Text('请输入违规词！'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
       print('请输入违规词！');
       return;
     }
@@ -155,17 +194,18 @@ Future<List<Map<String, String>>> matchBannedWords() async {
         _matches = matches;
       });
 
-    String videoDuration = await getVideoDuration();
+      String videoDuration = await getVideoDuration();
       List<String> timeRanges = generateTimeRanges(matches,videoDuration);
-      print(timeRanges);
 
-      await executeFFmpegCommands(timeRanges);
+
+      await executeFFmpegCommands(timeRanges, progressProvider);
 
     } catch (e) {
       print('运行过程中发生错误: $e');
     }
   }
-   Future<String> getVideoDuration() async {
+
+  Future<String> getVideoDuration() async {
     String cmd = '-i $_videoPath';
     String result = await FFmpegHandler.executeFFmpeg(cmd.split(' '));
     RegExp exp = RegExp(r'Duration: (\d+:\d+:\d+\.\d+)');
@@ -177,6 +217,7 @@ Future<List<Map<String, String>>> matchBannedWords() async {
   }
   @override
   Widget build(BuildContext context) {
+    ProgressProvider progressProvider = Provider.of<ProgressProvider>(context, listen: false);
     return DropTarget(
       onDragDone: (details) {
         for (var file in details.files) {
@@ -223,7 +264,7 @@ Future<List<Map<String, String>>> matchBannedWords() async {
               Text('选中的字幕文件: $_subtitlePath'),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: runCensorship,
+                onPressed: () => runCensorship(progressProvider),
                 child: const Text('开始运行'),
               ),
               const SizedBox(height: 20),

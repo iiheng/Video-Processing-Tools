@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'main_drawer.dart'; // 确保导入MainDrawer文件
+import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
+import 'providers/navigation_provider.dart';
+import 'providers/progress_provider.dart';
+import 'view/home_page.dart';
+
 Future<void> main() async {
-   WidgetsFlutterBinding.ensureInitialized();
-  // Must add this line.
+  WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
   WindowOptions windowOptions = const WindowOptions(
@@ -12,12 +15,21 @@ Future<void> main() async {
     skipTaskbar: false,
     minimumSize: Size(400, 300)
   );
-  windowManager.setTitle("视频处理软件");
+  windowManager.setTitle("视频处理工具 软件免费，qq群：853735619");
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
   });
-  runApp(const MyApp());
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ProgressProvider()),
+        ChangeNotifierProvider(create: (_) => NavigationProvider()), // Add this line
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -26,12 +38,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '视频处理工具',  // 应用的标题
+      title: '视频处理工具',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const MainDrawer(),  // 使用MainDrawer作为主页面
+      home: const HomePage(), 
     );
   }
 }

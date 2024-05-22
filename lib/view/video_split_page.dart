@@ -4,6 +4,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:randommovefile/providers/progress_provider.dart';
 import 'package:randommovefile/utils/FFmpegHandler.dart';
 import 'package:toastification/toastification.dart';
 
@@ -20,6 +22,7 @@ class _VideoSplitPageState extends State<VideoSplitPage> {
   TextEditingController splitDurationController = TextEditingController();
   TextEditingController splitCountController = TextEditingController();
   bool shouldSplitContinuously = false;  // 新增勾选框的状态
+
   Future<void> selectFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.video,
@@ -43,6 +46,8 @@ class _VideoSplitPageState extends State<VideoSplitPage> {
   }
 
   Future<void> splitVideo() async {
+
+
     if (videoPathController.text.isEmpty || saveFolderPathController.text.isEmpty || splitDurationController.text.isEmpty) {
       toastification.show(
         context: context,
@@ -63,7 +68,7 @@ class _VideoSplitPageState extends State<VideoSplitPage> {
       );
       return;
     }
-
+    
     Random random = Random();
     List<String> results = [];
     int count = shouldSplitContinuously ? (videoLength / duration).floor() : int.parse(splitCountController.text);

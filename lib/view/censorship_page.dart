@@ -20,7 +20,6 @@ class _CensorshipPageState extends State<CensorshipPage> {
   String _videoPath = '';
   String _subtitlePath = '';
   String _bannedWords = '';
-  final List<String> _timeStamps = [];
   List<Map<String, String>> _matches = [];  // 存储完整的匹配信息
   
    Future<void> pickVideoFile() async {
@@ -215,6 +214,7 @@ Future<List<Map<String, String>>> matchBannedWords() async {
     }
     throw Exception('无法获取视频时长');
   }
+  
   @override
   Widget build(BuildContext context) {
     ProgressProvider progressProvider = Provider.of<ProgressProvider>(context, listen: false);

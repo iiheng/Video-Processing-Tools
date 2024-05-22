@@ -3,7 +3,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
+import 'package:provider/provider.dart';
 import 'package:toastification/toastification.dart';
+
+import '../providers/progress_provider.dart';
 
 class VideoSelectorPage extends StatefulWidget {
   const VideoSelectorPage({super.key});
@@ -81,8 +84,9 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
     }
   }
 
-  Future<void> copyRandomVideos() async {
+  Future<void> copyRandomVideos(ProgressProvider progressProvider) async {
     print("Selected Files: $selecteddestinationFiles");
+    progressProvider.showProgress(0.0);
     if (sourceFolder == null || destinationFolder == null) {
       _showToast("请选择源文件夹和目标文件夹");
       return;
@@ -105,16 +109,16 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
         title: const Text("修改选中的文件夹"),
         autoCloseDuration: const Duration(seconds: 2),
       );
-      await _copyVideosToSelectedFolders(selectedFolders, videos);
+      await _copyVideosToSelectedFolders(selectedFolders, videos,progressProvider);
     } else {
       toastification.show(
         context: context, // optional if you use ToastificationWrapper
         title: const Text("未选择任何文件夹，直接复制"),
         autoCloseDuration: const Duration(seconds: 2),
       );
-      await _copyVideosToRepeatedFolders(videos);
+      await _copyVideosToRepeatedFolders(videos, progressProvider);
     }
-
+    progressProvider.hideProgress();
     _showToast("视频复制完成");
   }
 
@@ -133,19 +137,30 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
     }).toList();
   }
 
-  Future<void> _copyVideosToSelectedFolders(List<String> selectedFolders, List<FileSystemEntity> videos) async {
+  Future<void> _copyVideosToSelectedFolders(List<String> selectedFolders, List<FileSystemEntity> videos, ProgressProvider progressProvider) async {
     Random random = Random();
-    for (String folder in selectedFolders) {
+    double currentProgress = 0.0;
+
+    for (int i = 0; i < selectedFolders.length; i++) {
+      String folder = selectedFolders[i];
       if (clearDestination) {
         await clearVideosInFolder(folder);
       }
+
       final List<File> selectedVideos = List<File>.from(videos)..shuffle(random);
       await _copyVideos(selectedVideos, folder);
+
+      // 更新进度条
+      currentProgress = (i + 1) / selectedFolders.length;
+      progressProvider.updateProgress(currentProgress);
     }
   }
 
-  Future<void> _copyVideosToRepeatedFolders(List<FileSystemEntity> videos) async {
+
+  Future<void> _copyVideosToRepeatedFolders(List<FileSystemEntity> videos, ProgressProvider progressProvider) async {
     Random random = Random();
+    double currentProgress = 0.0;
+
     for (int i = 0; i < repeatCount; i++) {
       final String repeatFolder = path.join(destinationFolder!, "Repeat_${i + 1}");
       await Directory(repeatFolder).create(recursive: true);
@@ -156,8 +171,13 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
 
       final List<File> selectedVideos = List<File>.from(videos)..shuffle(random);
       await _copyVideos(selectedVideos, repeatFolder);
+
+      // 更新进度条
+      currentProgress = (i + 1) / repeatCount;
+      progressProvider.updateProgress(currentProgress);
     }
   }
+
 
   Future<void> _copyVideos(List<File> selectedVideos, String destinationFolder) async {
     for (int j = 0; j < videoCount; j++) {
@@ -187,6 +207,7 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
 
   @override
   Widget build(BuildContext context) {
+    ProgressProvider progressProvider = Provider.of<ProgressProvider>(context, listen: false);
     return Scaffold(
       appBar: AppBar(
         title: const Text('随机选择视频'),
@@ -307,7 +328,7 @@ if (destinationFiles.isNotEmpty) SizedBox(
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: copyRandomVideos,
+              onPressed: ()=> copyRandomVideos(progressProvider),
               child: const Text('开始复制'),
             ),
           ],

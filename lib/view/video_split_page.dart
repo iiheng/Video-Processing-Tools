@@ -45,63 +45,75 @@ class _VideoSplitPageState extends State<VideoSplitPage> {
     }
   }
 
-  Future<void> splitVideo() async {
-
-
-    if (videoPathController.text.isEmpty || saveFolderPathController.text.isEmpty || splitDurationController.text.isEmpty) {
-      toastification.show(
-        context: context,
-        title: const Text('请确保所有字段都已填写并且是有效的。'),
-        autoCloseDuration: const Duration(seconds: 2),
-      );
-      return;
-    }
-
-    int duration = int.parse(splitDurationController.text);
-    int videoLength = await FFmpegHandler.getVideoDuration(videoPathController.text);
-    print("视频时长：$videoLength秒");
-    if (videoLength <= duration) {
-      toastification.show(
-        context: context,
-        title: const Text('截取时长不能大于或等于视频总时长'),
-        autoCloseDuration: const Duration(seconds: 2),
-      );
-      return;
-    }
-    
-    Random random = Random();
-    List<String> results = [];
-    int count = shouldSplitContinuously ? (videoLength / duration).floor() : int.parse(splitCountController.text);
-
-    for (int i = 0; i < count; i++) {
-      int start = shouldSplitContinuously ? i * duration : random.nextInt(videoLength - duration);
-      String outputPath = "${saveFolderPathController.text}/output_${i.toString().padLeft(3, '0')}.mp4";
-      
-      List<String> arguments = [
-        "-ss",
-        start.toString(),
-        "-i",
-        videoPathController.text,
-        "-t",
-        duration.toString(),
-        "-c",
-        "copy",
-        outputPath
-      ];
-
-      String result = await FFmpegHandler.executeFFmpeg(arguments);
-      results.add(result);
-    }
-
-    // 显示操作结果
+  Future<void> splitVideo(ProgressProvider progressProvider) async {
+  if (videoPathController.text.isEmpty || saveFolderPathController.text.isEmpty || splitDurationController.text.isEmpty) {
     toastification.show(
       context: context,
-      title: Text(results.every((result) => result.contains("运行结束")) ? '视频分割成功' : '视频分割失败'),
+      title: const Text('请确保所有字段都已填写并且是有效的。'),
       autoCloseDuration: const Duration(seconds: 2),
     );
+    return;
   }
+
+  int duration = int.parse(splitDurationController.text);
+  int videoLength = await FFmpegHandler.getVideoDuration(videoPathController.text);
+  print("视频时长：$videoLength秒");
+  if (videoLength <= duration) {
+    toastification.show(
+      context: context,
+      title: const Text('截取时长不能大于或等于视频总时长'),
+      autoCloseDuration: const Duration(seconds: 2),
+    );
+    return;
+  }
+  
+  Random random = Random();
+  List<String> results = [];
+  int count = shouldSplitContinuously ? (videoLength / duration).floor() : int.parse(splitCountController.text);
+  double currentProgress = 0.0;
+  
+  // 初始化进度条
+  progressProvider.showProgress(currentProgress);
+
+  for (int i = 0; i < count; i++) {
+    int start = shouldSplitContinuously ? i * duration : random.nextInt(videoLength - duration);
+    String outputPath = "${saveFolderPathController.text}/output_${i.toString().padLeft(3, '0')}.mp4";
+    
+    List<String> arguments = [
+      "-ss",
+      start.toString(),
+      "-i",
+      videoPathController.text,
+      "-t",
+      duration.toString(),
+      "-c",
+      "copy",
+      outputPath
+    ];
+
+    String result = await FFmpegHandler.executeFFmpeg(arguments);
+    results.add(result);
+
+    // 更新进度条
+    currentProgress = (i + 1) / count;
+    progressProvider.updateProgress(currentProgress);
+  }
+
+  // 完成处理，隐藏进度条
+  progressProvider.hideProgress();
+
+  // 显示操作结果
+  toastification.show(
+    context: context,
+    title: Text(results.every((result) => result.contains("运行结束")) ? '视频分割成功' : '视频分割失败'),
+    autoCloseDuration: const Duration(seconds: 2),
+  );
+}
+
+
   @override
   Widget build(BuildContext context) {
+    ProgressProvider progressProvider = Provider.of<ProgressProvider>(context, listen: false);
     return Scaffold(
       appBar: AppBar(
         title: const Text('视频分割'),
@@ -171,10 +183,9 @@ class _VideoSplitPageState extends State<VideoSplitPage> {
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: splitVideo,
+              onPressed: ()=>{splitVideo(progressProvider)},
               child: const Text('开始分割'),
             ),
           ],

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
-import 'providers/navigation_provider.dart';
 import 'providers/progress_provider.dart';
 import 'view/home_page.dart';
 
@@ -25,7 +24,6 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
-        ChangeNotifierProvider(create: (_) => NavigationProvider()), // Add this line
       ],
       child: const MyApp(),
     ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
+import 'models/app_state.dart';
 import 'providers/progress_provider.dart';
 import 'view/home_page.dart';
 
@@ -9,11 +10,10 @@ Future<void> main() async {
   await windowManager.ensureInitialized();
 
   WindowOptions windowOptions = const WindowOptions(
-    center: true,
-    backgroundColor: Colors.transparent,
-    skipTaskbar: false,
-    minimumSize: Size(400, 300)
-  );
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      minimumSize: Size(400, 300));
   windowManager.setTitle("视频处理工具 软件免费，qq群：853735619");
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
@@ -24,6 +24,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
+        ChangeNotifierProvider(create: (_) => AppState())
       ],
       child: const MyApp(),
     ),
@@ -41,7 +42,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const HomePage(), 
+      home: const HomePage(),
     );
   }
 }

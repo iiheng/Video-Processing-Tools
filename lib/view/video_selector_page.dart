@@ -1,9 +1,13 @@
+// ignore_for_file: use_build_context_synchronously
+
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:toastification/toastification.dart';
 
 import '../providers/progress_provider.dart';
@@ -18,12 +22,70 @@ class VideoSelectorPage extends StatefulWidget {
 class _VideoSelectorPageState extends State<VideoSelectorPage> {
   String? sourceFolder;
   String? destinationFolder;
-  List<FileSystemEntity> sourceFiles = [];
   List<FileSystemEntity> destinationFiles = [];
   int videoCount = 0;
   int repeatCount = 1;
   bool clearDestination = false;
   Map<String, bool> selecteddestinationFiles = {}; // 追踪选中的文件
+
+  final videoCountController = TextEditingController();
+  final repeatCountController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    loadPreferences();
+  }
+
+  @override
+  void dispose() {
+    // 清理控制器资源
+    videoCountController.dispose();
+    repeatCountController.dispose();
+    super.dispose();
+  }
+
+  void loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      sourceFolder = prefs.getString('sourceFolder');
+      destinationFolder = prefs.getString('destinationFolder');
+      videoCount = prefs.getInt('videoCount') ?? 0;
+      repeatCount = prefs.getInt('repeatCount') ?? 1;
+      clearDestination = prefs.getBool('clearDestination') ?? false;
+      // 对于存储的Map对象，需要特别处理
+      final selectedFilesString = prefs.getString('selecteddestinationFiles');
+      if (selectedFilesString != null) {
+        selecteddestinationFiles =
+            Map<String, bool>.from(json.decode(selectedFilesString));
+      }
+      // 加载destinationFiles的路径并构造FileSystemEntity列表
+      final pathsString = prefs.getString('destinationFiles');
+      if (pathsString != null) {
+        List<String> paths = List<String>.from(json.decode(pathsString));
+        destinationFiles = paths.map((path) => File(path)).toList();
+      }
+      // 更新文本控制器
+      videoCountController.text = videoCount.toString();
+      repeatCountController.text = repeatCount.toString();
+    });
+  }
+
+// 保存数据
+  void savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sourceFolder', sourceFolder ?? '');
+    await prefs.setString('destinationFolder', destinationFolder ?? '');
+    await prefs.setInt('videoCount', videoCount);
+    await prefs.setInt('repeatCount', repeatCount);
+    await prefs.setBool('clearDestination', clearDestination);
+    // 将Map对象转化为字符串存储
+    final selectedFilesString = json.encode(selecteddestinationFiles);
+    await prefs.setString('selecteddestinationFiles', selectedFilesString);
+    // 保存destinationFiles的路径列表
+    List<String> paths = destinationFiles.map((file) => file.path).toList();
+    await prefs.setString('destinationFiles', json.encode(paths));
+  }
 
   Future<void> pickSourceFolder() async {
     String? folderPath = await FilePicker.platform.getDirectoryPath();
@@ -31,7 +93,6 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
       final List<FileSystemEntity> files = Directory(folderPath).listSync();
       setState(() {
         sourceFolder = folderPath;
-        sourceFiles = files;
       });
       toastification.show(
         context: context, // optional if you use ToastificationWrapper
@@ -42,27 +103,24 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
   }
 
   Future<void> pickDestinationFolder() async {
-  String? folderPath = await FilePicker.platform.getDirectoryPath();
-  if (folderPath != null) {
-    // 使用listSync()获取所有项，然后使用where()筛选出目录
-    final List<FileSystemEntity> directories = Directory(folderPath)
-      .listSync()
-      .whereType<Directory>()
-      .toList();
+    String? folderPath = await FilePicker.platform.getDirectoryPath();
+    if (folderPath != null) {
+      // 使用listSync()获取所有项，然后使用where()筛选出目录
+      final List<FileSystemEntity> directories =
+          Directory(folderPath).listSync().whereType<Directory>().toList();
 
-    setState(() {
-      destinationFolder = folderPath;
-      destinationFiles = directories;  // 更新destinationFiles，现在它只包含目录
-    });
+      setState(() {
+        destinationFolder = folderPath;
+        destinationFiles = directories; // 更新destinationFiles，现在它只包含目录
+      });
 
-    toastification.show(
-      context: context, // optional if you use ToastificationWrapper
-      title: const Text('选择文件成功'),
-      autoCloseDuration: const Duration(seconds: 2),
-    );
+      toastification.show(
+        context: context, // optional if you use ToastificationWrapper
+        title: const Text('选择文件成功'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+    }
   }
-}
-
 
   Future<void> clearVideosInFolder(String folderPath) async {
     final directory = Directory(folderPath);
@@ -70,13 +128,15 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
       final List<FileSystemEntity> files = directory.listSync();
       for (var file in files) {
         try {
-          if (file is File && ['.mp4', '.avi', '.mov', '.mkv', '.flv'].contains(path.extension(file.path).toLowerCase())) {
+          if (file is File &&
+              ['.mp4', '.avi', '.mov', '.mkv', '.flv']
+                  .contains(path.extension(file.path).toLowerCase())) {
             await file.delete();
           }
         } catch (e) {
           toastification.show(
             context: context, // optional if you use ToastificationWrapper
-            title:  Text("无法删除文件: ${file.path}, 可能文件正在使用中"),
+            title: Text("无法删除文件: ${file.path}, 可能文件正在使用中"),
             autoCloseDuration: const Duration(seconds: 2),
           );
         }
@@ -109,7 +169,8 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
         title: const Text("修改选中的文件夹"),
         autoCloseDuration: const Duration(seconds: 2),
       );
-      await _copyVideosToSelectedFolders(selectedFolders, videos,progressProvider);
+      await _copyVideosToSelectedFolders(
+          selectedFolders, videos, progressProvider);
     } else {
       toastification.show(
         context: context, // optional if you use ToastificationWrapper
@@ -133,11 +194,13 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
   List<FileSystemEntity> _getVideosFromSourceFolder() {
     return Directory(sourceFolder!).listSync().where((file) {
       return file is File &&
-          ['.mp4', '.avi', '.mov', '.mkv', '.flv'].contains(path.extension(file.path).toLowerCase());
+          ['.mp4', '.avi', '.mov', '.mkv', '.flv']
+              .contains(path.extension(file.path).toLowerCase());
     }).toList();
   }
 
-  Future<void> _copyVideosToSelectedFolders(List<String> selectedFolders, List<FileSystemEntity> videos, ProgressProvider progressProvider) async {
+  Future<void> _copyVideosToSelectedFolders(List<String> selectedFolders,
+      List<FileSystemEntity> videos, ProgressProvider progressProvider) async {
     Random random = Random();
     double currentProgress = 0.0;
 
@@ -147,7 +210,8 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
         await clearVideosInFolder(folder);
       }
 
-      final List<File> selectedVideos = List<File>.from(videos)..shuffle(random);
+      final List<File> selectedVideos = List<File>.from(videos)
+        ..shuffle(random);
       await _copyVideos(selectedVideos, folder);
 
       // 更新进度条
@@ -156,20 +220,22 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
     }
   }
 
-
-  Future<void> _copyVideosToRepeatedFolders(List<FileSystemEntity> videos, ProgressProvider progressProvider) async {
+  Future<void> _copyVideosToRepeatedFolders(
+      List<FileSystemEntity> videos, ProgressProvider progressProvider) async {
     Random random = Random();
     double currentProgress = 0.0;
 
     for (int i = 0; i < repeatCount; i++) {
-      final String repeatFolder = path.join(destinationFolder!, "Repeat_${i + 1}");
+      final String repeatFolder =
+          path.join(destinationFolder!, "Repeat_${i + 1}");
       await Directory(repeatFolder).create(recursive: true);
 
       if (clearDestination) {
         await clearVideosInFolder(repeatFolder);
       }
 
-      final List<File> selectedVideos = List<File>.from(videos)..shuffle(random);
+      final List<File> selectedVideos = List<File>.from(videos)
+        ..shuffle(random);
       await _copyVideos(selectedVideos, repeatFolder);
 
       // 更新进度条
@@ -178,11 +244,12 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
     }
   }
 
-
-  Future<void> _copyVideos(List<File> selectedVideos, String destinationFolder) async {
+  Future<void> _copyVideos(
+      List<File> selectedVideos, String destinationFolder) async {
     for (int j = 0; j < videoCount; j++) {
       final File video = selectedVideos[j];
-      final String destinationPath = path.join(destinationFolder, path.basename(video.path));
+      final String destinationPath =
+          path.join(destinationFolder, path.basename(video.path));
       try {
         await video.copy(destinationPath);
       } catch (e) {
@@ -190,6 +257,7 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
       }
     }
   }
+
   void selectAll() {
     setState(() {
       for (var file in destinationFiles) {
@@ -197,6 +265,7 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
       }
     });
   }
+
   void deselectAll() {
     setState(() {
       for (var file in destinationFiles) {
@@ -207,7 +276,8 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
 
   @override
   Widget build(BuildContext context) {
-    ProgressProvider progressProvider = Provider.of<ProgressProvider>(context, listen: false);
+    ProgressProvider progressProvider =
+        Provider.of<ProgressProvider>(context, listen: false);
     return Scaffold(
       appBar: AppBar(
         title: const Text('随机选择视频'),
@@ -228,69 +298,75 @@ class _VideoSelectorPageState extends State<VideoSelectorPage> {
               onPressed: pickDestinationFolder,
               child: const Text('选择目标文件夹'),
             ),
-if (destinationFiles.isNotEmpty) SizedBox(
-  height: 150,
-  child: ListView.builder(
-    itemCount: destinationFiles.length,
-    itemExtent: 20, // 设置每个列表项的固定高度
-    itemBuilder: (BuildContext context, int index) {
-      FileSystemEntity file = destinationFiles[index];
-      String filePath = file.path;
-      bool isSelected = selecteddestinationFiles[filePath] ?? false; // 获取当前文件的选中状态
-
-      return GestureDetector(
-        onTap: () {
-          setState(() {
-            selecteddestinationFiles[filePath] = !isSelected; // 更新选中状态
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5.0), // 水平内边距
-          child: Row(
-            children: [
-              Icon(Icons.folder, color: Colors.yellow[600], size: 20), // 文件夹图标
-              const SizedBox(width: 10), // 图标和文本之间的间距
-              Expanded(
-                child: Text(
-                  path.basename(filePath),
-                  style: const TextStyle(fontSize: 15),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Transform.scale(
-                scale: 0.8, // 缩小复选框
-                child: Checkbox(
-                  value: isSelected,
-                  onChanged: (bool? value) {
-                    setState(() {
-                      selecteddestinationFiles[filePath] = value ?? false; // 更新选中状态
-                    });
+            if (destinationFiles.isNotEmpty)
+              SizedBox(
+                height: 150,
+                child: ListView.builder(
+                  itemCount: destinationFiles.length,
+                  itemExtent: 20, // 设置每个列表项的固定高度
+                  itemBuilder: (BuildContext context, int index) {
+                    FileSystemEntity file = destinationFiles[index];
+                    String filePath = file.path;
+                    bool isSelected = selecteddestinationFiles[filePath] ??
+                        false; // 获取当前文件的选中状态
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selecteddestinationFiles[filePath] =
+                              !isSelected; // 更新选中状态
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5.0), // 水平内边距
+                        child: Row(
+                          children: [
+                            Icon(Icons.folder,
+                                color: Colors.yellow[600], size: 20), // 文件夹图标
+                            const SizedBox(width: 10), // 图标和文本之间的间距
+                            Expanded(
+                              child: Text(
+                                path.basename(filePath),
+                                style: const TextStyle(fontSize: 15),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Transform.scale(
+                              scale: 0.8, // 缩小复选框
+                              child: Checkbox(
+                                value: isSelected,
+                                onChanged: (bool? value) {
+                                  setState(() {
+                                    selecteddestinationFiles[filePath] =
+                                        value ?? false; // 更新选中状态
+                                  });
+                                },
+                                activeColor: Colors.blue,
+                                checkColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   },
-                  activeColor: Colors.blue,
-                  checkColor: Colors.white,
                 ),
               ),
-            ],
-          ),
-        ),
-      );
-    },
-  ),
-),
- const SizedBox(height: 16),
- if (destinationFiles.isNotEmpty) Row(
-              children: [
-                ElevatedButton(
-                  onPressed: selectAll,
-                  child: const Text('全选'),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: deselectAll,
-                  child: const Text('全部取消'),
-                ),
-              ],
-            ),
+            const SizedBox(height: 16),
+            if (destinationFiles.isNotEmpty)
+              Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: selectAll,
+                    child: const Text('全选'),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    onPressed: deselectAll,
+                    child: const Text('全部取消'),
+                  ),
+                ],
+              ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -306,6 +382,7 @@ if (destinationFiles.isNotEmpty) SizedBox(
               ],
             ),
             TextField(
+              controller: videoCountController, // 使用控制器
               decoration: const InputDecoration(
                 labelText: '随机选择视频数量',
                 border: OutlineInputBorder(),
@@ -317,6 +394,7 @@ if (destinationFiles.isNotEmpty) SizedBox(
             ),
             const SizedBox(height: 16),
             TextField(
+              controller: repeatCountController, // 使用控制器
               decoration: const InputDecoration(
                 labelText: '重复次数',
                 border: OutlineInputBorder(),
@@ -327,10 +405,20 @@ if (destinationFiles.isNotEmpty) SizedBox(
               },
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: ()=> copyRandomVideos(progressProvider),
-              child: const Text('开始复制'),
-            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center, // 按钮居中显示
+              children: <Widget>[
+                ElevatedButton(
+                  onPressed: () => copyRandomVideos(progressProvider),
+                  child: const Text('开始复制'),
+                ),
+                const SizedBox(width: 16), // 按钮之间的间距
+                ElevatedButton(
+                  onPressed: savePreferences, // 调用之前定义的保存数据的方法
+                  child: const Text('保存状态'),
+                ),
+              ],
+            )
           ],
         ),
       ),

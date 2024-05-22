@@ -20,9 +20,9 @@ class _CensorshipPageState extends State<CensorshipPage> {
   String _videoPath = '';
   String _subtitlePath = '';
   String _bannedWords = '';
-  List<Map<String, String>> _matches = [];  // 存储完整的匹配信息
-  
-   Future<void> pickVideoFile() async {
+  List<Map<String, String>> _matches = []; // 存储完整的匹配信息
+
+  Future<void> pickVideoFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
     if (result != null) {
       setState(() {
@@ -32,24 +32,30 @@ class _CensorshipPageState extends State<CensorshipPage> {
   }
 
   Future<void> pickSubtitleFile() async {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowedExtensions: ['srt'],
-        type: FileType.custom,
-      );
-      if (result != null) {
-        setState(() {
-          _subtitlePath = result.files.single.path!;
-        });
-      }
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      allowedExtensions: ['srt'],
+      type: FileType.custom,
+    );
+    if (result != null) {
+      setState(() {
+        _subtitlePath = result.files.single.path!;
+      });
     }
+  }
 
-Future<List<Map<String, String>>> matchBannedWords() async {
+  Future<List<Map<String, String>>> matchBannedWords() async {
     File subtitleFile = File(_subtitlePath);
-    List<String> bannedWordsList = _bannedWords.split('\n').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    List<String> bannedWordsList = _bannedWords
+        .split('\n')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
     List<Map<String, String>> matches = [];
 
     String content = await subtitleFile.readAsString();
-    RegExp exp = RegExp(r'^(\d+)\s*\r?\n([0-9,:-]+ --> [0-9,:-]+)\r?\n(.*(?:\r?\n(?!\r?\n).*)*)', multiLine: true);
+    RegExp exp = RegExp(
+        r'^(\d+)\s*\r?\n([0-9,:-]+ --> [0-9,:-]+)\r?\n(.*(?:\r?\n(?!\r?\n).*)*)',
+        multiLine: true);
     Iterable<RegExpMatch> entries = exp.allMatches(content);
 
     for (var entry in entries) {
@@ -68,7 +74,8 @@ Future<List<Map<String, String>>> matchBannedWords() async {
     return matches;
   }
 
-  List<String> generateTimeRanges(List<Map<String, String>> matches, String videoDuration) {
+  List<String> generateTimeRanges(
+      List<Map<String, String>> matches, String videoDuration) {
     List<String> timeRanges = [];
     String previousEnd = "00:00:00.000";
 
@@ -90,9 +97,10 @@ Future<List<Map<String, String>>> matchBannedWords() async {
     return timeRanges;
   }
 
-  Future<void> executeFFmpegCommands(List<String> timeRanges, ProgressProvider progressProvider) async {
+  Future<void> executeFFmpegCommands(
+      List<String> timeRanges, ProgressProvider progressProvider) async {
     List<String> tempFiles = [];
-    
+
     // 显示进度条并初始化为0
     progressProvider.showProgress(0.0);
     double currentProgress = 0.0;
@@ -101,7 +109,8 @@ Future<List<Map<String, String>>> matchBannedWords() async {
     double splitPhaseWeight = 0.7;
     for (var i = 0; i < timeRanges.length; i++) {
       String tempFileName = 'output_part_$i.ts';
-      String cmd = '-i $_videoPath ${timeRanges[i]} -c copy -bsf:v h264_mp4toannexb -f mpegts $tempFileName';
+      String cmd =
+          '-i $_videoPath ${timeRanges[i]} -c copy -bsf:v h264_mp4toannexb -f mpegts $tempFileName';
       String result = await FFmpegHandler.executeFFmpeg(cmd.split(' '));
       print(result);
       if (File(tempFileName).existsSync()) {
@@ -131,16 +140,16 @@ Future<List<Map<String, String>>> matchBannedWords() async {
     progressProvider.hideProgress();
   }
 
-
-
   Future<void> mergeVideoSegments(List<String> tempFiles) async {
     String concatFileName = 'concat_list.txt';
     File concatFile = File(concatFileName);
-    await concatFile.writeAsString(tempFiles.map((f) => "file '$f'").join('\n'));
+    await concatFile
+        .writeAsString(tempFiles.map((f) => "file '$f'").join('\n'));
 
     String videoDir = File(_videoPath).parent.path;
     String videoName = File(_videoPath).uri.pathSegments.last;
-    String outputFileName = '$videoDir/${videoName.split('.').first}_消音后.${videoName.split('.').last}';
+    String outputFileName =
+        '$videoDir/${videoName.split('.').first}_消音后.${videoName.split('.').last}';
 
     // 检查输出文件是否存在，如果存在则删除
     File outputFile = File(outputFileName);
@@ -148,13 +157,14 @@ Future<List<Map<String, String>>> matchBannedWords() async {
       await outputFile.delete();
     }
 
-    String concatCmd = '-f concat -safe 0 -i $concatFileName -c copy $outputFileName';
-    String concatResult = await FFmpegHandler.executeFFmpeg(concatCmd.split(' '));
+    String concatCmd =
+        '-f concat -safe 0 -i $concatFileName -c copy $outputFileName';
+    String concatResult =
+        await FFmpegHandler.executeFFmpeg(concatCmd.split(' '));
     print(concatResult);
 
     concatFile.deleteSync();
   }
-
 
   Future<void> cleanUpTempFiles(List<String> tempFiles) async {
     for (var tempFile in tempFiles) {
@@ -194,11 +204,9 @@ Future<List<Map<String, String>>> matchBannedWords() async {
       });
 
       String videoDuration = await getVideoDuration();
-      List<String> timeRanges = generateTimeRanges(matches,videoDuration);
-
+      List<String> timeRanges = generateTimeRanges(matches, videoDuration);
 
       await executeFFmpegCommands(timeRanges, progressProvider);
-
     } catch (e) {
       print('运行过程中发生错误: $e');
     }
@@ -214,10 +222,11 @@ Future<List<Map<String, String>>> matchBannedWords() async {
     }
     throw Exception('无法获取视频时长');
   }
-  
+
   @override
   Widget build(BuildContext context) {
-    ProgressProvider progressProvider = Provider.of<ProgressProvider>(context, listen: false);
+    ProgressProvider progressProvider =
+        Provider.of<ProgressProvider>(context, listen: false);
     return DropTarget(
       onDragDone: (details) {
         for (var file in details.files) {
@@ -241,7 +250,7 @@ Future<List<Map<String, String>>> matchBannedWords() async {
                 decoration: const InputDecoration(
                   labelText: '输入需要消音的文本（一行一个违规词）',
                   hintText: '输入违规词',
-                  border: OutlineInputBorder(),  // 添加外边框
+                  border: OutlineInputBorder(), // 添加外边框
                 ),
                 onChanged: (value) {
                   _bannedWords = value;
@@ -249,7 +258,7 @@ Future<List<Map<String, String>>> matchBannedWords() async {
                 maxLines: 5,
               ),
               const SizedBox(height: 20),
-                ElevatedButton(
+              ElevatedButton(
                 onPressed: pickVideoFile,
                 child: const Text('选择视频文件'),
               ),
@@ -269,12 +278,13 @@ Future<List<Map<String, String>>> matchBannedWords() async {
               ),
               const SizedBox(height: 20),
               SizedBox(
-                height: 200,  // 设置一个固定高度
+                height: 200, // 设置一个固定高度
                 child: ListView.builder(
                   itemCount: _matches.length,
                   itemBuilder: (context, index) {
                     return ListTile(
-                      title: Text('序号: ${_matches[index]['index']} -  时间段: ${_matches[index]['time']}'),
+                      title: Text(
+                          '序号: ${_matches[index]['index']} -  时间段: ${_matches[index]['time']}'),
                       subtitle: Text('文本: ${_matches[index]['text']}'),
                     );
                   },

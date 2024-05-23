@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "randommovefile" "\0"
+            VALUE "CompanyName", "com.wujie.videotools" "\0"
+            VALUE "FileDescription", "无界视频处理工具" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "randommovefile" "\0"
+            VALUE "InternalName", "无界视频处理工具" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2024 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "randommovefile.exe" "\0"
-            VALUE "ProductName", "randommovefile" "\0"
+            VALUE "OriginalFilename", "无界视频处理工具.exe" "\0"
+            VALUE "ProductName", "无界视频处理工具" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

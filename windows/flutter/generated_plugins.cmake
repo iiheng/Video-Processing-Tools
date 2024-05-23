@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   desktop_drop
   permission_handler_windows
   screen_retriever
+  webview_windows
   window_manager
 )
 

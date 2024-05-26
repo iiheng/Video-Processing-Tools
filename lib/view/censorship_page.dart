@@ -148,6 +148,8 @@ class _CensorshipPageState extends State<CensorshipPage> {
 
     String videoDir = File(_videoPath).parent.path;
     String videoName = File(_videoPath).uri.pathSegments.last;
+    String intermediateFileName =
+        '$videoDir/${videoName.split('.').first}_merged.${videoName.split('.').last}';
     String outputFileName =
         '$videoDir/${videoName.split('.').first}_消音后.${videoName.split('.').last}';
 
@@ -157,13 +159,22 @@ class _CensorshipPageState extends State<CensorshipPage> {
       await outputFile.delete();
     }
 
+    // 合并视频
     String concatCmd =
-        '-f concat -safe 0 -i $concatFileName -c copy $outputFileName';
+        '-f concat -safe 0 -i $concatFileName -c copy $intermediateFileName';
     String concatResult =
         await FFmpegHandler.executeFFmpeg(concatCmd.split(' '));
     print(concatResult);
 
+    // 跳过前十秒
+    String trimCmd =
+        '-y -ss 10 -accurate_seek -i $intermediateFileName -c copy -avoid_negative_ts 1 $outputFileName';
+    String trimResult = await FFmpegHandler.executeFFmpeg(trimCmd.split(' '));
+    print(trimResult);
+
+    // 清理临时文件
     concatFile.deleteSync();
+    File(intermediateFileName).deleteSync();
   }
 
   Future<void> cleanUpTempFiles(List<String> tempFiles) async {

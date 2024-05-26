@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:webview_windows/webview_windows.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BililivePage extends StatefulWidget {
   const BililivePage({Key? key}) : super(key: key);
@@ -38,7 +39,27 @@ class _BililivePageState extends State<BililivePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('BiliLive'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('BiliLive - 免费开源工具'),
+            IconButton(
+              icon: const Icon(Icons.link),
+              onPressed: () async {
+                const url = 'https://github.com/hr3lxphr6j/bililive-go';
+                final uri = Uri.parse(url);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                } else {
+                  // 如果无法启动 URL，可以在这里添加处理逻辑
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('无法打开链接')),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
       ),
       body: Stack(
         children: <Widget>[
